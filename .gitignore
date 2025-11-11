@@ -1,0 +1,7 @@
+.env
+.venv
+docs/
+__pycache__/
+*/__pycache__/*
+mail_bot.db
+mail_bot.log
