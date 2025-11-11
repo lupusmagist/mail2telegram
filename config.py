@@ -27,7 +27,7 @@ class Config:
     def validate_config(cls):
         """Validate that all required configuration is present"""
         required_vars = [
-            'POP3_USER', 'POP3_PASSWORD', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'
+            'POP3_EMAIL', 'POP3_PASSWORD', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_CHAT_ID'
         ]
         
         missing_vars = [var for var in required_vars if not getattr(cls, var)]
