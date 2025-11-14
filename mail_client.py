@@ -166,6 +166,9 @@ class POP3MailClient:
                         payload = part.get_payload(decode=True)
                         if payload:
                             html_content = payload.decode('utf-8', errors='ignore')
+                            # Extract embedded images
+                            embedded_images = self._extract_embedded_images(html_content)
+                            images.extend(embedded_images)
                             # Convert HTML to plain text, preserving important content
                             html_body = self._html_to_plain_text(html_content)
                             if html_body:
@@ -184,6 +187,9 @@ class POP3MailClient:
             elif content_type == "text/html":
                 try:
                     html_content = msg.get_payload(decode=True).decode('utf-8', errors='ignore')
+                    # Extract embedded images
+                    embedded_images = self._extract_embedded_images(html_content)
+                    images.extend(embedded_images)
                     body = self._html_to_plain_text(html_content)
                 except:
                     body = msg.get_payload()
@@ -194,23 +200,23 @@ class POP3MailClient:
         """Convert HTML to plain text while preserving structure"""
         try:
             soup = BeautifulSoup(html_content, 'lxml')
-            
+
             # Remove script and style elements
             for script in soup(["script", "style"]):
                 script.decompose()
-            
+
             # Get text and clean it up
             text = soup.get_text()
-            
+
             # Break into lines and remove leading/trailing space
             lines = (line.strip() for line in text.splitlines())
-            
+
             # Break multi-headlines into a line each
             chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            
+
             # Drop blank lines and join with newlines
             text = '\n'.join(chunk for chunk in chunks if chunk)
-            
+
             return text
         except Exception as e:
             self.logger.warning(f"Error converting HTML to text: {e}")
@@ -219,7 +225,36 @@ class POP3MailClient:
             text = re.sub(r'<[^>]+>', '', html_content)
             text = re.sub(r'\n\s*\n', '\n\n', text)
             return text.strip()
-    
+
+    def _extract_embedded_images(self, html_content):
+        """Extract embedded images from HTML content (data: URIs)"""
+        images = []
+        try:
+            soup = BeautifulSoup(html_content, 'lxml')
+            for img in soup.find_all('img'):
+                src = img.get('src', '')
+                if src.startswith('data:image/'):
+                    try:
+                        header, data = src.split(',', 1)
+                        if 'base64' in header:
+                            image_data = base64.b64decode(data)
+                            size = len(image_data)
+                            if size > 51200:  # 50KB
+                                content_type = header.split(';')[0].split(':')[1]
+                                filename = f"embedded_{datetime.utcnow().timestamp()}.{content_type.split('/')[-1]}"
+                                images.append({
+                                    'filename': filename,
+                                    'content_type': content_type,
+                                    'data': image_data,
+                                    'size': size
+                                })
+                    except Exception as e:
+                        self.logger.warning(f"Error extracting embedded image: {e}")
+                        continue
+        except Exception as e:
+            self.logger.warning(f"Error parsing HTML for embedded images: {e}")
+        return images
+
     def _extract_image(self, part):
         """Extract image data from email part"""
         try:
