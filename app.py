@@ -1,18 +1,38 @@
 import logging
+import re
 import signal
 import sys
+from logging.handlers import RotatingFileHandler
 from config import Config
 from database import DatabaseManager
 from mail_client import POP3MailClient
 from telegram_bot import TelegramBot
 from scheduler import MailCheckerScheduler
 
+def log_namer(name):
+    """Custom namer for log rotation to use .old+n format"""
+    if name.endswith('.log.1'):
+        return name.replace('.log.1', '.log.old1')
+    match = re.search(r'\.log\.(\d+)$', name)
+    if match:
+        num = int(match.group(1))
+        return name.replace(f'.log.{num}', f'.log.old{num}')
+    return name
+
 # Configure logging
+log_handler = RotatingFileHandler(
+    'mail_bot.log',
+    maxBytes=Config.LOG_SIZE,
+    backupCount=Config.LOG_ARCHIVE,
+    encoding='utf-8'
+)
+log_handler.namer = log_namer
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('mail_bot.log'),
+        log_handler,
         logging.StreamHandler(sys.stdout)
     ]
 )
