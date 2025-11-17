@@ -261,19 +261,42 @@ class POP3MailClient:
             content_type = part.get_content_type()
             filename = part.get_filename()
             
-            if not filename:
+            # Decode filename if it's encoded
+            if filename:
+                filename = self._decode_header(filename)
+            else:
                 filename = f"image_{datetime.utcnow().timestamp()}.{content_type.split('/')[-1]}"
             
-            # Decode the image data
+            # Get the transfer encoding
+            transfer_encoding = part.get('Content-Transfer-Encoding', '').lower().strip()
+            
+            # Try to decode the image data
             image_data = part.get_payload(decode=True)
             
-            if image_data:
+            # If decode=True didn't work and we have base64 encoding, try manual decode
+            if not image_data or (isinstance(image_data, str) and transfer_encoding == 'base64'):
+                try:
+                    payload = part.get_payload()
+                    if isinstance(payload, str):
+                        # Remove any whitespace and newlines
+                        payload = payload.replace('\n', '').replace('\r', '').replace(' ', '')
+                        image_data = base64.b64decode(payload)
+                        self.logger.info(f"Manually decoded base64 image: {filename}")
+                except Exception as decode_error:
+                    self.logger.error(f"Manual base64 decode failed for {filename}: {decode_error}")
+                    return None
+            
+            if image_data and len(image_data) > 0:
                 return {
                     'filename': filename,
                     'content_type': content_type,
                     'data': image_data,
                     'size': len(image_data)
                 }
+            else:
+                self.logger.warning(f"No image data extracted for {filename}")
+                return None
+                
         except Exception as e:
             self.logger.error(f"Error extracting image: {e}")
         
