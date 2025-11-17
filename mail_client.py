@@ -136,16 +136,33 @@ class POP3MailClient:
             for part in msg.walk():
                 content_type = part.get_content_type()
                 content_disposition = str(part.get("Content-Disposition"))
+                filename = part.get_filename()
+                
+                # Decode filename if encoded
+                if filename:
+                    filename = self._decode_header(filename)
+                
+                # Check if this is an image by content type OR by filename extension
+                is_image = content_type.startswith('image/')
+                if not is_image and filename:
+                    # Check if filename has image extension
+                    lower_filename = filename.lower()
+                    is_image = any(lower_filename.endswith(ext) for ext in
+                                 ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tif'])
                 
                 # Handle images (both inline and attachments)
-                if content_type.startswith('image/'):
+                if is_image:
+                    self.logger.info(f"Found image: {filename or 'unnamed'} (type: {content_type})")
                     image_data = self._extract_image(part)
                     if image_data:
                         images.append(image_data)
+                        self.logger.info(f"Successfully extracted image: {image_data['filename']} ({image_data['size']} bytes)")
+                    else:
+                        self.logger.warning(f"Failed to extract image data for: {filename or 'unnamed'}")
                     continue
                 
                 # Skip non-image attachments
-                if "attachment" in content_disposition:
+                if "attachment" in content_disposition and not is_image:
                     continue
                 
                 # Handle text parts
