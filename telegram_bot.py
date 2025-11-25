@@ -1,4 +1,4 @@
-from telegram import Bot, InputFile
+from telegram import Bot, InputFile, InputMediaPhoto
 from telegram.error import TelegramError
 import logging
 import io
@@ -65,14 +65,11 @@ class TelegramBot:
                 media_group = []
                 for i, image in enumerate(images_to_send):
                     photo = InputFile(io.BytesIO(image['data']), filename=image['filename'])
-                    media_item = {
-                        'type': 'photo',
-                        'media': photo
-                    }
                     if i == 0:
                         # First image gets the caption
-                        media_item['caption'] = message
-                        media_item['parse_mode'] = 'HTML'
+                        media_item = InputMediaPhoto(media=photo, caption=message, parse_mode='HTML')
+                    else:
+                        media_item = InputMediaPhoto(media=photo)
                     
                     media_group.append(media_item)
                 
