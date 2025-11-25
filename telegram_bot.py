@@ -64,12 +64,13 @@ class TelegramBot:
                 # Multiple images - send media group with first image having caption
                 media_group = []
                 for i, image in enumerate(images_to_send):
-                    photo = InputFile(io.BytesIO(image['data']), filename=image['filename'])
+                    photo_bytes = io.BytesIO(image['data'])
+                    photo_bytes.name = image['filename']  # Set filename attribute
                     if i == 0:
                         # First image gets the caption
-                        media_item = InputMediaPhoto(media=photo, caption=message, parse_mode='HTML')
+                        media_item = InputMediaPhoto(media=photo_bytes, caption=message, parse_mode='HTML')
                     else:
-                        media_item = InputMediaPhoto(media=photo)
+                        media_item = InputMediaPhoto(media=photo_bytes)
                     
                     media_group.append(media_item)
                 
